@@ -105,10 +105,14 @@ function _toMonday(dateStr) {
 function _weeksInRange(fromMonday, toMonday) {
   if (!fromMonday || !toMonday) return [];
   const weeks = [];
-  const end = new Date(toMonday + 'T00:00:00');
-  let cur  = new Date(fromMonday + 'T00:00:00');
+  // Use T12:00:00 (noon) so no timezone shifts the date to a different day
+  const end = new Date(toMonday + 'T12:00:00');
+  let cur   = new Date(fromMonday + 'T12:00:00');
   while (cur <= end && weeks.length <= 60) {
-    weeks.push(cur.toISOString().slice(0, 10));
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    weeks.push(`${y}-${m}-${d}`);
     cur.setDate(cur.getDate() + 7);
   }
   return weeks;
@@ -1090,74 +1094,36 @@ function openCellEditor(empId, weekStart, cellEl) {
     </tr>`;
   }).join('');
 
-  const pop = document.getElementById('cell-popover');
-  pop.innerHTML = `
-    <div class="popover-header">
-      <div>
-        <div class="popover-week">${emp.name} &nbsp;·&nbsp; Week of ${_fmtWeek(weekStart)}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="popover-cap" id="pop-total">${totalBooked}h booked · ${totalActual}h actual / ${cap}h cap</span>
-        <button class="popover-close-btn" onclick="closeCellPopover()">×</button>
-      </div>
+  showModal(`
+  <div class="modal-header">
+    <div>
+      <span class="modal-title">${emp.name} &nbsp;·&nbsp; Week of ${_fmtWeek(weekStart)}</span>
+      <div style="font-size:12px;color:#64748b;margin-top:2px" id="pop-total">${totalBooked}h booked · ${totalActual}h actual / ${cap}h cap</div>
     </div>
-    <div style="max-height:260px;overflow-y:auto">
-      <table class="popover-table">
-        <thead>
-          <tr>
-            <th style="text-align:left;min-width:155px">Project</th>
-            <th style="width:70px">Booked</th>
-            <th style="width:70px">Actual</th>
-          </tr>
-        </thead>
-        <tbody>${projectRows}</tbody>
-      </table>
-    </div>
-    <div class="popover-footer">
-      <span style="font-size:11px;color:#94a3b8;flex:1">Set to 0 to clear · green = has hours</span>
-      <button class="btn btn-secondary btn-sm" onclick="closeCellPopover()">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="pop-save-btn" onclick="saveCellPopover()">Save</button>
-    </div>
-    <div class="popover-arrow"></div>`;
-
-  // Show invisible first to measure, then position
-  pop.style.visibility = 'hidden';
-  pop.style.display    = 'block';
-  document.getElementById('popover-backdrop').style.display = 'block';
-
-  requestAnimationFrame(() => {
-    const rect   = cellEl.getBoundingClientRect();
-    const popW   = pop.offsetWidth  || 420;
-    const popH   = pop.offsetHeight || 320;
-    const margin = 10;
-    const sidebarW = 248;
-
-    // Horizontal: center on cell, clamp to viewport
-    let left = rect.left + rect.width / 2 - popW / 2;
-    left = Math.max(sidebarW, Math.min(left, window.innerWidth - popW - margin));
-
-    // Vertical: prefer above, flip below if not enough room
-    let top = rect.top - popH - 10;
-    const arrowEl = pop.querySelector('.popover-arrow');
-    if (top < 70) {
-      top = rect.bottom + 10;
-      if (arrowEl) { arrowEl.style.bottom = 'auto'; arrowEl.style.top = '-7px'; arrowEl.style.transform = 'translateX(-50%) rotate(180deg)'; }
-    }
-
-    // Adjust arrow horizontal position to point at cell center
-    const cellCenter = rect.left + rect.width / 2;
-    const arrowLeft  = Math.max(20, Math.min(cellCenter - left, popW - 20));
-    if (arrowEl) arrowEl.style.left = arrowLeft + 'px';
-
-    pop.style.left       = left + 'px';
-    pop.style.top        = top  + 'px';
-    pop.style.visibility = 'visible';
-  });
+    <button class="modal-close">×</button>
+  </div>
+  <div class="modal-body" style="padding:0">
+    <table class="popover-table" style="width:100%">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:10px 14px;min-width:175px">Project</th>
+          <th style="width:80px;text-align:center;padding:10px 8px">Booked</th>
+          <th style="width:80px;text-align:center;padding:10px 8px">Actual</th>
+        </tr>
+      </thead>
+      <tbody>${projectRows}</tbody>
+    </table>
+  </div>
+  <div class="modal-footer">
+    <span style="font-size:11px;color:#94a3b8;margin-right:auto">Set to 0 to clear &nbsp;·&nbsp; green = has hours</span>
+    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" id="pop-save-btn" onclick="saveCellPopover()">Save</button>
+  </div>`);
 }
 
 function updatePopoverTotal() {
-  const bookedInputs = document.querySelectorAll('#cell-popover .pop-booked');
-  const actualInputs = document.querySelectorAll('#cell-popover .pop-actual');
+  const bookedInputs = document.querySelectorAll('.pop-booked');
+  const actualInputs = document.querySelectorAll('.pop-actual');
   const totalB = Array.from(bookedInputs).reduce((s,i) => s + (parseInt(i.value)||0), 0);
   const totalA = Array.from(actualInputs).reduce((s,i) => s + (parseInt(i.value)||0), 0);
   const el = document.getElementById('pop-total');
@@ -1169,13 +1135,12 @@ function updatePopoverTotal() {
 }
 
 function closeCellPopover() {
-  document.getElementById('cell-popover').style.display = 'none';
-  document.getElementById('popover-backdrop').style.display = 'none';
+  closeModal();
 }
 
 async function saveCellPopover() {
-  const bookedInputs = document.querySelectorAll('#cell-popover .pop-booked');
-  const actualInputs = document.querySelectorAll('#cell-popover .pop-actual');
+  const bookedInputs = document.querySelectorAll('.pop-booked');
+  const actualInputs = document.querySelectorAll('.pop-actual');
   const totalB = Array.from(bookedInputs).reduce((s,i) => s + (parseInt(i.value)||0), 0);
 
   if (totalB > _popCap * 1.5 && !confirm(`${totalB}h booked exceeds capacity by >50%. Save anyway?`)) return;
@@ -1193,7 +1158,7 @@ async function saveCellPopover() {
     bookedInputs.forEach(inp => {
       const projId     = inp.dataset.proj;
       const booked     = parseInt(inp.value) || 0;
-      const actualInp  = document.querySelector(`#cell-popover .pop-actual[data-proj="${projId}"]`);
+      const actualInp  = document.querySelector(`.pop-actual[data-proj="${projId}"]`);
       const actual     = parseInt(actualInp?.value) || 0;
       const wasPresent = !!existingByProj[projId];
 
