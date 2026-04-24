@@ -23,17 +23,20 @@ const DB = {
       { data: projs,      error: e2 },
       { data: empSkills,  error: e3 },
       { data: assigns,    error: e4 },
+      { data: boardRows,  error: e5 },
     ] = await Promise.all([
       sb.from('employees').select('*').order('created_at'),
       sb.from('projects').select('*').order('created_at'),
       sb.from('employee_skills').select('*').order('employee_id, skill_order'),
       sb.from('assignments').select('*').order('week_start'),
+      sb.from('board_tasks').select('*').order('created_at'),
     ]);
 
     if (e1) sbErr('employees', e1);
     if (e2) sbErr('projects',  e2);
     if (e3) sbErr('employee_skills', e3);
     if (e4) sbErr('assignments', e4);
+    // e5 is intentionally silent — board_tasks table may not exist yet
 
     // ── skills by employee ─────────────────────────────────────────
     const skillsByEmp = {};
@@ -129,6 +132,21 @@ const DB = {
       actualHours: a.actual_hours || 0,
     }));
 
+    // ── populate APP_DATA.boardTasks from Supabase (if available) ─────
+    if (boardRows && boardRows.length > 0) {
+      APP_DATA.boardTasks = boardRows.map(r => ({
+        id:          r.id,
+        title:       r.title,
+        project:     r.project_id,
+        projectName: r.project_name || '',
+        priority:    r.priority || 'Medium',
+        dueDate:     r.due_date || '',
+        status:      r.status || 'todo',
+        tags:        r.tags || [],
+        assignees:   r.assignees || [],
+      }));
+    }
+
     // ── rebuild helpers ────────────────────────────────────────────
     APP_DATA.getEmployee = id => APP_DATA.employees.find(e => e.id === id);
     APP_DATA.getProject  = id => APP_DATA.projects.find(p => p.id === id);
@@ -182,7 +200,7 @@ const DB = {
   // ============================================================
   async addProject(data) {
     const row = {
-      id:         crypto.randomUUID(),
+      id:         (crypto?.randomUUID ? crypto.randomUUID() : _uuidFallback()),
       name:       data.name,
       client:     data.client || '',
       status:     (data.status || 'Active').toLowerCase(),
@@ -294,7 +312,7 @@ const DB = {
     try {
       const row = {
         title:        data.title,
-        project_id:   data.projectId || null,
+        project_id:   data.project || data.projectId || null,
         project_name: data.projectName || '',
         priority:     data.priority || 'Medium',
         due_date:     data.dueDate || null,
@@ -302,7 +320,19 @@ const DB = {
       };
       const { data: inserted, error } = await sb.from('board_tasks').insert(row).select().single();
       if (error) throw error;
-      return inserted;
+      const t = {
+        id:          inserted.id,
+        title:       inserted.title,
+        project:     inserted.project_id,
+        projectName: inserted.project_name || '',
+        priority:    inserted.priority,
+        dueDate:     inserted.due_date || '',
+        status:      inserted.status,
+        tags:        data.tags || [],
+        assignees:   data.assignees || [],
+      };
+      APP_DATA.boardTasks.push(t);
+      return t;
     } catch {
       // If board_tasks table doesn't exist, push to local only
       const t = { ...data, id: Date.now() };
