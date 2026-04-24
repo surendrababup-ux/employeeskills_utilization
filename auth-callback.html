@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing you in… — Smartshore HCM</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1e293b;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      padding: 40px 48px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 4px 24px rgba(0,0,0,.07);
+    }
+    .logo-badge {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800; color: white;
+      margin: 0 auto 20px;
+      box-shadow: 0 4px 14px rgba(99,102,241,.3);
+    }
+    h1 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    p  { font-size: 13px; color: #64748b; line-height: 1.6; }
+
+    /* Spinner */
+    .spinner-wrap { margin: 24px auto 20px; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Success */
+    .icon-ok {
+      width: 52px; height: 52px;
+      background: #f0fdf4;
+      border: 2px solid #86efac;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .icon-ok svg { width: 24px; height: 24px; color: #16a34a; }
+
+    /* Error */
+    .icon-err {
+      width: 52px; height: 52px;
+      background: #fef2f2;
+      border: 2px solid #fecaca;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .icon-err svg { width: 24px; height: 24px; color: #ef4444; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 20px; padding: 10px 22px;
+      background: linear-gradient(135deg, #2563eb, #6366f1);
+      color: white; border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: .9; }
+
+    .err-detail {
+      margin-top: 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #b91c1c;
+      text-align: left;
+      word-break: break-all;
+    }
+
+    /* Setup URL hint box */
+    .url-box {
+      margin-top: 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #475569;
+      text-align: left;
+    }
+    .url-box strong { display: block; color: #1e293b; margin-bottom: 4px; }
+    .url-val {
+      font-family: monospace;
+      font-size: 11px;
+      color: #2563eb;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="logo-badge">SH</div>
+
+  <!-- Loading state -->
+  <div id="state-loading">
+    <div class="spinner-wrap"><div class="spinner"></div></div>
+    <h1>Verifying your account…</h1>
+    <p>Please wait while we confirm your email and sign you in.</p>
+  </div>
+
+  <!-- Success state (shown briefly before redirect) -->
+  <div id="state-success" style="display:none">
+    <div class="icon-ok">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h1>Email confirmed!</h1>
+    <p>Your account is verified. Redirecting you to the app…</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="state-error" style="display:none">
+    <div class="icon-err">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    </div>
+    <h1 id="err-heading">Verification failed</h1>
+    <p id="err-body">The link may have expired or already been used.</p>
+    <div class="err-detail" id="err-detail" style="display:none"></div>
+    <a href="login.html" class="btn">Back to sign in</a>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ryilwwtbqesfydhaulzv.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_WgNflyEj7mTvgqxRxLIs_g_oBU_PPkW';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function show(id) {
+    ['state-loading','state-success','state-error'].forEach(s =>
+      document.getElementById(s).style.display = s === id ? 'block' : 'none'
+    );
+  }
+
+  async function processCallback() {
+    // Supabase v2 automatically reads #access_token from the URL hash
+    // and exchanges it for a session when getSession() is called.
+    try {
+      // Give the SDK a moment to parse the hash
+      await new Promise(r => setTimeout(r, 300));
+
+      const { data: { session }, error } = await sb.auth.getSession();
+
+      if (error) throw error;
+
+      if (session) {
+        show('state-success');
+        const appUrl = window.location.protocol === 'file:'
+          ? 'http://localhost:5500/index.html'
+          : window.location.pathname.replace(/\/[^/]*$/, '/index.html');
+        setTimeout(() => window.location.replace(appUrl), 1500);
+        return;
+      }
+
+      // No session but also no error — maybe hash wasn't parsed yet
+      // Try exchanging code from URL params (PKCE flow)
+      const params = new URLSearchParams(window.location.search);
+      const code   = params.get('code');
+      if (code) {
+        const { data, error: codeErr } = await sb.auth.exchangeCodeForSession(code);
+        if (codeErr) throw codeErr;
+        if (data?.session) {
+          show('state-success');
+          setTimeout(() => window.location.replace('index.html'), 1500);
+          return;
+        }
+      }
+
+      throw new Error('No session returned. The link may have expired or already been used.');
+
+    } catch (err) {
+      show('state-error');
+      const m = err.message || '';
+
+      if (m.toLowerCase().includes('expired')) {
+        document.getElementById('err-heading').textContent = 'Link expired';
+        document.getElementById('err-body').textContent    = 'This verification link has expired. Please register again or request a new link.';
+      } else if (m.toLowerCase().includes('already') || m.toLowerCase().includes('used')) {
+        document.getElementById('err-heading').textContent = 'Already verified';
+        document.getElementById('err-body').textContent    = 'This link has already been used. Try signing in directly.';
+      } else {
+        document.getElementById('err-heading').textContent = 'Verification failed';
+        document.getElementById('err-body').textContent    = 'Something went wrong. Please try again.';
+        if (m) {
+          document.getElementById('err-detail').textContent = m;
+          document.getElementById('err-detail').style.display = 'block';
+        }
+      }
+    }
+  }
+
+  processCallback();
+</script>
+</body>
+</html>
