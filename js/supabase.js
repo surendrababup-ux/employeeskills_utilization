@@ -182,12 +182,15 @@ const DB = {
   // ============================================================
   async addProject(data) {
     const row = {
+      id:         crypto.randomUUID(),
       name:       data.name,
       client:     data.client || '',
       status:     (data.status || 'Active').toLowerCase(),
       color:      _randomProjectColor(),
       start_date: data.startDate || null,
       end_date:   data.endDate   || null,
+      budget:     data.budget ? parseFloat(data.budget) : 0,
+      phase:      data.phase  || 'Initiation',
     };
     const { data: inserted, error } = await sb.from('projects').insert(row).select().single();
     if (error) sbErr('addProject', error);
