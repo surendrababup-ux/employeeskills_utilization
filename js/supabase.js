@@ -77,9 +77,11 @@ const DB = {
       const weekPcts = APP_DATA.weekLabels.map(w =>
         weekData[w] ? Math.round((weekData[w] / cap) * 100) : 0
       );
-      const avg = weekPcts.length
-        ? Math.round(weekPcts.reduce((s, v) => s + v, 0) / weekPcts.length)
+      const assignedPcts = weekPcts.filter(v => v > 0);
+      const avg = assignedPcts.length
+        ? Math.round(assignedPcts.reduce((s, v) => s + v, 0) / assignedPcts.length)
         : 0;
+      const maxWeekUtil = weekPcts.length ? Math.max(...weekPcts) : 0;
 
       return {
         id:           e.id,
@@ -91,6 +93,7 @@ const DB = {
         location:     e.location || 'India',
         hoursPerWeek: cap,
         utilization:  avg,
+        maxWeekUtil,
         color:        e.color || '#6366f1',
         skills:       (skillsByEmp[e.id] || []).map(s => s.name),
         skillLevels:  Object.fromEntries((skillsByEmp[e.id] || []).map(s => [s.name, s.level])),
@@ -217,12 +220,14 @@ const DB = {
 
   async updateProject(id, data) {
     const row = {};
-    if (data.name)     row.name     = data.name;
-    if (data.client)   row.client   = data.client;
-    if (data.status)   row.status   = data.status.toLowerCase();
-    if (data.phase)    row.phase    = data.phase;
-    if (data.budget !== undefined) row.budget = parseFloat(data.budget) || 0;
-    if (data.progress !== undefined) row.progress = parseInt(data.progress);
+    if (data.name)                   row.name       = data.name;
+    if (data.client)                 row.client     = data.client;
+    if (data.status)                 row.status     = data.status.toLowerCase();
+    if (data.phase)                  row.phase      = data.phase;
+    if (data.budget !== undefined)   row.budget     = parseFloat(data.budget) || 0;
+    if (data.progress !== undefined) row.progress   = parseInt(data.progress);
+    if (data.startDate !== undefined) row.start_date = data.startDate || null;
+    if (data.endDate   !== undefined) row.end_date   = data.endDate   || null;
     const { error } = await sb.from('projects').update(row).eq('id', id);
     if (error) sbErr('updateProject', error);
   },

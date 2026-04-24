@@ -209,7 +209,7 @@ function navigate(page) {
 function renderDashboard() {
   const emps = APP_DATA.employees;
   const avgUtil    = emps.length ? Math.round(emps.reduce((s,e) => s + e.utilization, 0) / emps.length) : 0;
-  const overAlloc  = emps.filter(e => e.utilization > 100).length;
+  const overAlloc  = emps.filter(e => e.maxWeekUtil > 100).length;
   const onBench    = emps.filter(e => e.utilization < 20).length;
   const available  = emps.filter(e => e.utilization < 80).length;
   const totalHours = APP_DATA.assignments.reduce((s,a) => s + a.hours, 0);
@@ -278,10 +278,10 @@ function renderDashboard() {
               <div style="font-weight:600;font-size:13px">${e.name}</div>
               <div style="font-size:11px;color:#64748b">${e.role}</div>
               <div style="height:5px;background:#f1f5f9;border-radius:3px;margin-top:4px">
-                <div style="height:100%;width:${Math.min(e.utilization,100)}%;background:${e.utilization>100?'#ef4444':e.utilization>=80?'#f59e0b':'#22c55e'};border-radius:3px"></div>
+                <div style="height:100%;width:${Math.min(e.utilization,100)}%;background:${e.maxWeekUtil>100?'#ef4444':e.utilization>=80?'#f59e0b':'#22c55e'};border-radius:3px"></div>
               </div>
             </div>
-            <div style="font-size:16px;font-weight:800;color:${e.utilization>100?'#ef4444':e.utilization>=80?'#f59e0b':'#22c55e'};flex-shrink:0">
+            <div style="font-size:16px;font-weight:800;color:${e.maxWeekUtil>100?'#ef4444':e.utilization>=80?'#f59e0b':'#22c55e'};flex-shrink:0">
               ${e.utilization}%
             </div>
           </div>`).join('')}
@@ -299,7 +299,7 @@ function showDrilldown(type) {
   const isOver = type === 'overallocated';
 
   const list = isOver
-    ? emps.filter(e => e.utilization > 100).sort((a, b) => b.utilization - a.utilization)
+    ? emps.filter(e => e.maxWeekUtil > 100).sort((a, b) => b.utilization - a.utilization)
     : emps.filter(e => e.utilization < 80).sort((a, b) => a.utilization - b.utilization);
 
   const title    = isOver ? 'Overallocated Employees' : 'Available Capacity';
@@ -315,7 +315,7 @@ function showDrilldown(type) {
     const freeHours   = Math.max(0, cap - bookedHours);
     const overHours   = Math.max(0, bookedHours - cap);
     const barPct      = Math.min(e.utilization, 100);
-    const barColor    = e.utilization > 100 ? '#ef4444' : e.utilization >= 80 ? '#f59e0b' : '#22c55e';
+    const barColor    = e.maxWeekUtil > 100 ? '#ef4444' : e.utilization >= 80 ? '#f59e0b' : '#22c55e';
     const projects    = e.projects.map(pid => APP_DATA.getProject(pid)?.name).filter(Boolean);
 
     return `
@@ -423,7 +423,7 @@ function renderScheduleMonthly() {
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;gap:28px;align-items:center;flex-wrap:wrap">
     ${[
       {label:'Avg Utilization', val:overallAvg+'%', color:'#2563eb'},
-      {label:'Overallocated',   val:APP_DATA.employees.filter(e=>e.utilization>100).length, color:'#ef4444'},
+      {label:'Overallocated',   val:APP_DATA.employees.filter(e=>e.maxWeekUtil>100).length, color:'#ef4444'},
       {label:'Fully Utilized',  val:APP_DATA.employees.filter(e=>e.utilization>=80&&e.utilization<=100).length, color:'#f59e0b'},
       {label:'Available',       val:APP_DATA.employees.filter(e=>e.utilization<80&&e.utilization>=20).length, color:'#22c55e'},
       {label:'On Bench',        val:APP_DATA.employees.filter(e=>e.utilization<20).length, color:'#8b5cf6'},
@@ -547,7 +547,7 @@ function renderScheduleWeekly() {
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 18px;margin-bottom:14px;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
     ${[
       {label:'Avg Utilization', val:overallAvg+'%', color:'#2563eb'},
-      {label:'Overallocated',   val:APP_DATA.employees.filter(e=>e.utilization>100).length,  color:'#ef4444'},
+      {label:'Overallocated',   val:APP_DATA.employees.filter(e=>e.maxWeekUtil>100).length,  color:'#ef4444'},
       {label:'Fully Utilized',  val:APP_DATA.employees.filter(e=>e.utilization===100).length, color:'#2563eb'},
       {label:'Available',       val:APP_DATA.employees.filter(e=>e.utilization<100&&e.utilization>=20).length, color:'#16a34a'},
       {label:'On Bench',        val:APP_DATA.employees.filter(e=>e.utilization<20).length,   color:'#8b5cf6'},
@@ -1378,8 +1378,8 @@ function renderEmployees(search = '', filter = 'all') {
   const emps = APP_DATA.employees.filter(e => {
     const ms = !search || e.name.toLowerCase().includes(search) || e.role.toLowerCase().includes(search);
     const mf = filter === 'all'
-      || (filter === 'over'  && e.utilization > 100)
-      || (filter === 'avail' && e.utilization < 50)
+      || (filter === 'over'  && e.maxWeekUtil > 100)
+      || (filter === 'avail' && e.utilization < 80)
       || filter === e.dept?.toLowerCase();
     return ms && mf;
   }).sort((a, b) => a.name.localeCompare(b.name));
@@ -1428,13 +1428,13 @@ function renderEmployees(search = '', filter = 'all') {
             <span class="emp-dept">${emp.dept || 'Delivery'}</span>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:20px;font-weight:800;color:${emp.utilization>100?'#ef4444':emp.utilization>=80?'#f59e0b':'#22c55e'}">${emp.utilization}%</div>
+            <div style="font-size:20px;font-weight:800;color:${emp.maxWeekUtil>100?'#ef4444':emp.utilization>=80?'#f59e0b':'#22c55e'}">${emp.utilization}%</div>
             <div style="font-size:10px;color:#64748b">utilization</div>
           </div>
         </div>
 
         <div style="height:6px;background:#f1f5f9;border-radius:3px;margin-bottom:14px">
-          <div style="height:100%;width:${Math.min(emp.utilization,100)}%;background:${emp.utilization>100?'#ef4444':emp.utilization>=80?'#f59e0b':'#22c55e'};border-radius:3px;transition:width 0.3s"></div>
+          <div style="height:100%;width:${Math.min(emp.utilization,100)}%;background:${emp.maxWeekUtil>100?'#ef4444':emp.utilization>=80?'#f59e0b':'#22c55e'};border-radius:3px;transition:width 0.3s"></div>
         </div>
 
         ${projObjs.length ? `
@@ -2447,6 +2447,16 @@ function openEditProject(id) {
     </div>
     <div class="form-row">
       <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input class="form-input" id="m-pstart" type="date" value="${p.startDate || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date</label>
+        <input class="form-input" id="m-pend" type="date" value="${p.endDate || ''}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
         <label class="form-label">Progress %</label>
         <input class="form-input" id="m-pprog" type="number" value="${p.progress}" min="0" max="100">
       </div>
@@ -2476,10 +2486,12 @@ async function saveProject(id) {
     if (id) {
       await DB.updateProject(id, {
         name, client,
-        status:   document.getElementById('m-pstatus')?.value,
-        phase:    document.getElementById('m-pphase')?.value.trim(),
-        progress: document.getElementById('m-pprog')?.value,
-        budget:   document.getElementById('m-pbudget')?.value || 0,
+        status:     document.getElementById('m-pstatus')?.value,
+        phase:      document.getElementById('m-pphase')?.value.trim(),
+        progress:   parseInt(document.getElementById('m-pprog')?.value) || 0,
+        budget:     parseFloat(document.getElementById('m-pbudget')?.value) || 0,
+        startDate:  document.getElementById('m-pstart')?.value || null,
+        endDate:    document.getElementById('m-pend')?.value || null,
       });
       closeModal(); toast('Project updated!', 'success');
     } else {
@@ -2695,7 +2707,7 @@ function initDashboardCharts() {
         datasets:[{
           label:'Utilization %',
           data: sorted.map(e=>e.utilization),
-          backgroundColor: sorted.map(e=>e.utilization>100?'rgba(239,68,68,0.8)':e.utilization>=80?'rgba(245,158,11,0.8)':'rgba(34,197,94,0.8)'),
+          backgroundColor: sorted.map(e=>e.maxWeekUtil>100?'rgba(239,68,68,0.8)':e.utilization>=80?'rgba(245,158,11,0.8)':'rgba(34,197,94,0.8)'),
           borderRadius:5, borderSkipped:false
         }]
       },
