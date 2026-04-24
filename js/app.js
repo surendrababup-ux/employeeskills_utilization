@@ -2808,9 +2808,8 @@ function _chartColor(i) {
 
 // ---- EVENT HANDLERS ----
 function attachHandlers(page) {
-  document.getElementById('modal-overlay')?.addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeModal();
-  });
+  const ov = document.getElementById('modal-overlay');
+  if (ov) ov.onclick = e => { if (e.target === e.currentTarget) closeModal(); };
 }
 
 // ---- LOADING STATES ----
