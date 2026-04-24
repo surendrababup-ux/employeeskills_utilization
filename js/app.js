@@ -93,13 +93,14 @@ function closeModal() {
 }
 
 // ---- DATE HELPERS ----
-function _toMonday(dateStr) {
+function _toSunday(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  const d = new Date(dateStr + 'T12:00:00'); // noon avoids timezone date shifts
+  d.setDate(d.getDate() - d.getDay()); // getDay(): 0=Sun…6=Sat; subtracting snaps back to Sunday
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 function _weeksInRange(fromMonday, toMonday) {
@@ -130,8 +131,12 @@ function _fmtMonth(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-function _todayMonday() {
-  return _toMonday(new Date().toISOString().slice(0, 10));
+function _todaySunday() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return _toSunday(`${y}-${m}-${d}`);
 }
 
 // ---- ROUTING ----
@@ -1186,7 +1191,7 @@ async function saveCellEditor() {}
 
 // ---- BULK ALLOCATION MODAL ----
 function openBulkAllocation(empId = '', projId = '') {
-  const today   = _todayMonday();
+  const today   = _todaySunday();
   const d4      = new Date(today + 'T00:00:00');
   d4.setDate(d4.getDate() + 21);                    // default: 4 weeks out
   const endDate = d4.toISOString().slice(0, 10); // 4 weeks default
@@ -1271,8 +1276,8 @@ function previewBulkAllocation() {
     return;
   }
 
-  const from  = _toMonday(fromRaw);
-  const to    = _toMonday(toRaw);
+  const from  = _toSunday(fromRaw);
+  const to    = _toSunday(toRaw);
   const emp   = APP_DATA.getEmployee(empId);
   const proj  = APP_DATA.getProject(projId);
   const weeks = _weeksInRange(from, to);
@@ -1337,8 +1342,8 @@ function previewBulkAllocation() {
 async function saveBulkAllocation() {
   const empId  = document.getElementById('ba-emp')?.value;
   const projId = document.getElementById('ba-proj')?.value;
-  const from   = _toMonday(document.getElementById('ba-from')?.value);
-  const to     = _toMonday(document.getElementById('ba-to')?.value);
+  const from   = _toSunday(document.getElementById('ba-from')?.value);
+  const to     = _toSunday(document.getElementById('ba-to')?.value);
   const hours  = parseInt(document.getElementById('ba-hours')?.value) || 0;
 
   if (!empId || !projId || !hours) {
