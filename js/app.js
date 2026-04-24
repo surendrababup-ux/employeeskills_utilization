@@ -2455,6 +2455,10 @@ function openEditProject(id) {
         <input class="form-input" id="m-pphase" value="${p.phase}">
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Budget ($)</label>
+      <input class="form-input" id="m-pbudget" type="number" value="${p.budget || 0}" placeholder="e.g. 200000">
+    </div>
   </div>
   <div class="modal-footer">
     <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
@@ -2475,6 +2479,7 @@ async function saveProject(id) {
         status:   document.getElementById('m-pstatus')?.value,
         phase:    document.getElementById('m-pphase')?.value.trim(),
         progress: document.getElementById('m-pprog')?.value,
+        budget:   document.getElementById('m-pbudget')?.value || 0,
       });
       closeModal(); toast('Project updated!', 'success');
     } else {

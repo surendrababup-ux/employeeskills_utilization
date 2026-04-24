@@ -221,6 +221,7 @@ const DB = {
     if (data.client)   row.client   = data.client;
     if (data.status)   row.status   = data.status.toLowerCase();
     if (data.phase)    row.phase    = data.phase;
+    if (data.budget !== undefined) row.budget = parseFloat(data.budget) || 0;
     if (data.progress !== undefined) row.progress = parseInt(data.progress);
     const { error } = await sb.from('projects').update(row).eq('id', id);
     if (error) sbErr('updateProject', error);
