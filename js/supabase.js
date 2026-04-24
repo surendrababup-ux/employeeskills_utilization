@@ -229,6 +229,7 @@ const DB = {
       if (error) sbErr('updateAssignment', error);
     } else {
       const { error } = await sb.from('assignments').insert({
+        id: crypto.randomUUID(),
         employee_id: employeeId, project_id: projectId, week_start: weekStart,
         hours, actual_hours: actualHours || 0
       });
